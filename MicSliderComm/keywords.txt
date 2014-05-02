@@ -1,0 +1,17 @@
+# Syntax Coloring Map For MicSliderCommon
+
+# Datatypes (KEYWORD1)
+
+MicSliderCommSender	    KEYWORD1
+MicSliderCommReceiver   KEYWORD1
+
+# Methods and Functions (KEYWORD2)
+
+sendControlData       KEYWORD2
+setControllerOneData  KEYWORD2
+setControllerTwoData  KEYWORD2
+receiveControlData    KEYWORD2
+getControllerOneData  KEYWORD2
+getControllerTwoData  KEYWORD2
+
+# Constants (LITERAL1)
