@@ -1,8 +1,10 @@
 #include <MicSliderComm.h>
 #include <Servo.h> 
  
-Servo myServoX;
-Servo myServoY;
+Servo servoOneX;
+Servo servoOneY;
+Servo servoTwoX;
+Servo servoTwoY;
 
 #define MIN_DEGREES_X 1500
 #define MAX_DEGREES_X 2600
@@ -16,27 +18,14 @@ int joystickValueY;
 int posX;
 int posY;
 
-int ctrlOneX, ctrlOneY, ctrlTwoX, ctrlTwoY;
+int ctrlOneX = 1500;
+int ctrlOneY = 1500;
+int ctrlTwoX = 1500;
+int ctrlTwoY = 1500;
 
 boolean debug = false;
 
 MicSliderCommReceiver receiver;
-
-void setup() 
-{
-  Serial.begin(9600);
-
-  myServoX.attach(9);
-  posX = MIDDLE_POS_X;
-  myServoX.writeMicroseconds(posX);
-  
-  myServoY.attach(10);
-  posY = MIDDLE_POS_Y;
-  myServoY.writeMicroseconds(posY);
-
-  delay(5000);
-} 
-
 
 void printBuffer(unsigned char* buffer, int bufSize) // Debug function
 {
@@ -47,32 +36,61 @@ void printBuffer(unsigned char* buffer, int bufSize) // Debug function
   Serial.println("");
 }
 
-void loop() 
+void setup()
 {
-  if(debug) {
-      Serial.println(posX);
-  }
+  Serial.begin(9600);
+
+  servoOneX.attach(9);
+  posX = MIDDLE_POS_X;
+  servoOneX.writeMicroseconds(1500);
+
+  servoOneY.attach(10);
+  posY = MIDDLE_POS_Y;
+  servoOneY.writeMicroseconds(1500);
+
+  servoTwoX.attach(5);
+  posX = MIDDLE_POS_X;
+  servoTwoX.writeMicroseconds(1500);
   
-  if(!myServoX.attached()) {
-    myServoX.attach(9);
+  servoTwoY.attach(6);
+  posY = MIDDLE_POS_Y;
+  servoTwoY.writeMicroseconds(1500);
+
+  delay(5000);
+}
+int counter = 0;
+void loop()
+{
+  //if(debug) {
+  //  Serial.println(posX);
+  //}
+  /*
+  if(!servoOneX.attached()) {
+    servoOneX.attach(9);
   }
-  if(!myServoY.attached()) {
-    myServoY.attach(10);
+  if(!servoOneY.attached()) {
+    servoOneY.attach(10);
   }
-  
+  */
   receiver.receiveControlData(); // Will lock here until necessary data has been read
   receiver.getControllerOneData(&ctrlOneX, &ctrlOneY);
-  // receiver.getControllerTwoData(&ctrlTwoX, &ctrlTwoY); // TODO: uncomment when implemented
+  receiver.getControllerTwoData(&ctrlTwoX, &ctrlTwoY); // TODO: uncomment when implemented
   
   // Controller one
-  setPosX(ctrlOneX);
-  myServoX.writeMicroseconds(posX);
-  setPosY(ctrlOneY);
-  myServoY.writeMicroseconds(posY);
+  //setPosX(ctrlOneX);
+  servoOneX.writeMicroseconds(ctrlOneX);
+  //setPosY(ctrlOneY);
+  servoOneY.writeMicroseconds(ctrlOneY);
+  // Controller two
+  servoTwoX.writeMicroseconds(ctrlTwoX);
+  servoTwoY.writeMicroseconds(ctrlTwoY);
   
-  // TODO: Controller two
+  // Debug
+  Serial.print("1X:"); Serial.print(ctrlOneX);  Serial.print(" 1Y:"); Serial.print(ctrlOneY);
+  Serial.print(" 2X:"); Serial.print(ctrlTwoX);  Serial.print(" 2Y:"); Serial.print(ctrlTwoY);
+  Serial.println();
         
-  delay(21); // TODO: Is delay necessary here?
+  //delay(20); // Is delay necessary here?
 }
 
 
@@ -124,7 +142,7 @@ int getDelta(int joystickValue) {
   if(debug) {
       Serial.println("Stick at rest");
   }
-  myServoX.detach();
+  servoOneX.detach();
   return 0;
 }
 
