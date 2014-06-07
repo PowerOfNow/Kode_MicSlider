@@ -2,328 +2,161 @@
 
 #include <MicSliderComm.h>
 
-// LCD backlight PIN
-#define BackLight  7
-
-// Button pin
-const int buttonPin = 8;     // the number of the pushbutton pin
-const int ledPin =  13;      // the number of the LED pin
-
-
+// Objects
 MicSliderCommSender sender;
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
+// Pin setup
+const int joystickOneXPin     = A0;
+const int joystickOneYPin     = A1;
+const int joystickTwoXPin     = A2;
+const int joystickTwoYPin     = A3;
+const int lcdBacklightPin     = 7;
+const int presetOneButtonPin  = 8;
+const int presetOneLedPin     = 13;
 
-// Constants/variables controller one (analog servos on rails)
-const int C_ONE_X_DELTA = 5;
-const int C_ONE_Y_DELTA = 5;
-const int C_ONE_MIN_X_POS = 1000;
-const int C_ONE_MAX_X_POS = 2000;
-const int C_ONE_MIN_Y_POS = 1000;
-const int C_ONE_MAX_Y_POS = 2000;
-int posOneX = 1500; // Actual calculated current position of servo 1X
-int posOneY = 1500; // Actual calculated current position of servo 1Y
-
-
-// Constants/variables controller two (digital servos, tilt/rotate)
-const int C_TWO_X_DELTA = 15;
-const int C_TWO_Y_DELTA = 15;
-const int C_TWO_MIN_X_POS = 1000;
-const int C_TWO_MAX_X_POS = 2000;
-const int C_TWO_MIN_Y_POS = 1000;
-const int C_TWO_MAX_Y_POS = 2000;
-int posTwoX = 1500; // Actual calculated current position of servo 2X
-int posTwoY = 1500; // Actual calculated current position of servo 2Y
-
-
-// PRESET values
-int presetPosOneX = posOneX;
-int presetPosOneY = posOneY;
-int presetPosTwoX = posTwoX;
-int presetPosTwoY = posTwoY;
-
-
-// READ ONLY. Only write these values from updateJoypads()
-int curJoyOneX = 512;
-int curJoyOneY = 512;
-int curJoyTwoX = 512;
-int curJoyTwoY = 512;
-void updateJoypads()
-{
-  curJoyOneX = analogRead(A0);
-  curJoyOneY = analogRead(A1);
-  curJoyTwoX = analogRead(A2);
-  curJoyTwoY = analogRead(A3);
-}
-
-// General joypad queries
-boolean queryMoveUp(int joypadValue)
-{
-   return joypadValue > 674;
-}
-
-boolean queryMoveDown(int joypadValue)
-{
-  return joypadValue < 350;
-}
-// Query Controller One
-boolean queryMoveOneXUp()
-{
-  return queryMoveUp(curJoyOneX);
-}
-boolean queryMoveOneXDown()
-{
-  return queryMoveDown(curJoyOneX);
-}
-boolean queryMoveOneYUp()
-{
-  return queryMoveUp(curJoyOneY);
-}
-boolean queryMoveOneYDown()
-{
-  return queryMoveDown(curJoyOneY);
-}
-
-// Query Controller Two
-boolean queryMoveTwoXUp()
-{
-  return queryMoveUp(curJoyTwoX);
-}
-boolean queryMoveTwoXDown()
-{
-  return queryMoveDown(curJoyTwoX);
-}
-boolean queryMoveTwoYUp()
-{
-  return queryMoveUp(curJoyTwoY);
-}
-boolean queryMoveTwoYDown()
-{
-  return queryMoveDown(curJoyTwoY);
-}
-
-// Inc/Dec Controller One
-void decreaseOneXPos()
-{
-  if (posOneX > C_ONE_MIN_X_POS) {
-    posOneX -= C_ONE_X_DELTA;
-  }
-  if (posOneX < C_ONE_MIN_X_POS) {
-    posOneX = C_ONE_MIN_X_POS;
-  }
-}
-void increaseOneXPos()
-{
-  if (posOneX < C_ONE_MAX_X_POS) {
-    posOneX += C_ONE_X_DELTA;
-  }
-  if (posOneX > C_ONE_MAX_X_POS) {
-    posOneX = C_ONE_MAX_X_POS;
-  }
-}
-void decreaseOneYPos()
-{
-  if (posOneY > C_ONE_MIN_Y_POS) {
-    posOneY -= C_ONE_Y_DELTA;
-  }
-  if (posOneY < C_ONE_MIN_Y_POS) {
-    posOneY = C_ONE_MIN_Y_POS;
-  }
-}
-void increaseOneYPos()
-{
-  if (posOneY < C_ONE_MAX_Y_POS) {
-    posOneY += C_ONE_Y_DELTA;
-  }
-  if (posOneY > C_ONE_MAX_Y_POS) {
-    posOneY = C_ONE_MAX_Y_POS;
-  }
-}
-
-// Inc/Dec Controller Two
-void decreaseTwoXPos()
-{
-  if (posTwoX > C_TWO_MIN_X_POS) {
-    posTwoX -= C_TWO_X_DELTA;
-  }
-  if (posTwoX < C_TWO_MIN_X_POS) {
-    posTwoX = C_TWO_MIN_X_POS;
-  }
-}
-void increaseTwoXPos()
-{
-  if (posTwoX < C_TWO_MAX_X_POS) {
-    posTwoX += C_TWO_X_DELTA;
-  }
-  if (posTwoX > C_TWO_MAX_X_POS) {
-    posTwoX = C_TWO_MAX_X_POS;
-  }
-}
-void decreaseTwoYPos()
-{
-  if (posTwoY > C_TWO_MIN_Y_POS) {
-    posTwoY -= C_TWO_Y_DELTA;
-  }
-  if (posTwoY < C_TWO_MIN_Y_POS) {
-    posTwoY = C_TWO_MIN_Y_POS;
-  }
-}
-void increaseTwoYPos()
-{
-  if (posTwoY < C_TWO_MAX_Y_POS) {
-    posTwoY += C_TWO_Y_DELTA;
-  }
-  if (posTwoY > C_TWO_MAX_Y_POS) {
-    posTwoY = C_TWO_MAX_Y_POS;
-  }
-}
-
-// Move Controller One
-boolean moveOneXUp()
-{
-  if (queryMoveOneXUp()) {
-    increaseOneXPos();
-    return true;
-  }
-  return false;
-}
-boolean moveOneXDown()
-{
-  if (queryMoveOneXDown()) {
-    decreaseOneXPos();
-    return true;
-  }
-  return false;
-}
-boolean moveOneYUp()
-{
-  if (queryMoveOneYUp()) {
-    increaseOneYPos();
-    return true;
-  }
-  return false;
-}
-boolean moveOneYDown()
-{
-  if (queryMoveOneYDown()) {
-    decreaseOneYPos();
-    return true;
-  }
-  return false;
-}
-
-// Move Controller Two
-boolean moveTwoXUp()
-{
-  if (queryMoveTwoXUp()) {
-    increaseTwoXPos();
-    return true;
-  }
-  return false;
-}
-boolean moveTwoXDown()
-{
-  if (queryMoveTwoXDown()) {
-    decreaseTwoXPos();
-    return true;
-  }
-  return false;
-}
-boolean moveTwoYUp()
-{
-  if (queryMoveTwoYUp()) {
-    increaseTwoYPos();
-    return true;
-  }
-  return false;
-}
-boolean moveTwoYDown()
-{
-  if (queryMoveTwoYDown()) {
-    decreaseTwoYPos();
-    return true;
-  }
-  return false;
-}
-
-void debugInfo()
-{
-  if (queryMoveOneXUp()) {
-    Serial.println("Move X UP");
-  } else if (queryMoveOneXDown()) {
-    Serial.println("Move X Down");
-  }
-
-  if (queryMoveOneYUp()) {
-    Serial.println("Move Y UP");
-  } else if (queryMoveOneYDown()) {
-    Serial.println("Move Y Down");
-  }
-
-  Serial.print("1X:"); Serial.print(posOneX); Serial.print(" 1Y:"); Serial.print(posOneY); Serial.println();
-}
-
-void calculatePositions()
-{
-  static boolean previousState = false;
-  static int previousInt = posOneX;
-  boolean currentStateOne = moveOneXUp() || moveOneXDown() || moveOneYUp() || moveOneYDown();
-  boolean currentStateTwo = moveTwoXUp() || moveTwoXDown() || moveTwoYUp() || moveTwoYDown();
-  /*
-  if (currentState != previousState) {
-    if (previousState) {
-      int backtrack = abs(posOneX - previousInt) / 10;
-      if (posOneX > previousInt) {
-        posOneX -= 50;
-      } else {
-        posOneX += 50;
-      }
-      previousInt = posOneX;
-    }
-    previousState = currentState;
-
-  }
-  */
-  /*
-  if (queryMoveOneXUp()) {
-    posOneX = 1;
-  } else if (queryMoveOneXDown()) {
-    posOneX = -1;
-  } else {
-    posOneX = 0;
-  }
-  */
-}
-
+// LCD column positions
 const int lcdLeftRightPos = 0;
 const int lcdFrontBackPos = 4;
-const int lcdPanPos = 8;
-const int lcdTiltPos = 12;
+const int lcdPanPos       = 8;
+const int lcdTiltPos      = 12;
 
-void lcdSetHeaders()
+// Delta values for both controllers (how much should x/y be de/increased by per iteration while joystick is active)
+const int C_ONE_X_DELTA = 5;
+const int C_ONE_Y_DELTA = 5;
+const int C_TWO_X_DELTA = 15;
+const int C_TWO_Y_DELTA = 15;
+
+// Joystick constants
+const int joystickMiddle    = 512;
+const int joystickDeadzoneX = 162;
+const int joystickDeadzoneY = 162;
+
+// PRESET values
+int presetPosOneX = 1500;
+int presetPosOneY = 1500;
+int presetPosTwoX = 1500;
+int presetPosTwoY = 1500;
+
+
+// These four variables contain the current position of all for servos.
+// Only modify these through updatePos*()
+int posOneX = 1500;
+int posOneY = 1500;
+int posTwoX = 1500;
+int posTwoY = 1500;
+void updatePosOneX(int delta)
+{
+  posOneX = constrain(posOneX + delta, C_ONE_MIN_X_POS, C_ONE_MAX_X_POS);
+}
+
+void updatePosOneY(int delta)
+{
+  posOneY = constrain(posOneY + delta, C_ONE_MIN_Y_POS, C_ONE_MAX_Y_POS);
+}
+
+void updatePosTwoX(int delta)
+{
+  posTwoX = constrain(posTwoX + delta, C_TWO_MIN_X_POS, C_TWO_MAX_X_POS);
+}
+
+void updatePosTwoY(int delta)
+{
+  posTwoY = constrain(posTwoY + delta, C_TWO_MIN_Y_POS, C_TWO_MAX_Y_POS);
+}
+
+
+// JOYSTICK FUNCTIONS
+int joystickGetXModifier(int joypos)
+{
+  static const int deadzoneXDown = joystickMiddle - joystickDeadzoneX;
+  static const int deadzoneXUp   = joystickMiddle + joystickDeadzoneX;
+
+  if (joypos < deadzoneXDown) {
+    return -1;
+  } else if (joypos > deadzoneXUp) {
+    return 1;
+  }
+  return 0;
+}
+
+int joystickGetYModifier(int joypos)
+{
+  static const int deadzoneYDown = joystickMiddle - joystickDeadzoneY;
+  static const int deadzoneYUp   = joystickMiddle + joystickDeadzoneY;
+
+  if (joypos < deadzoneYDown) {
+    return -1;
+  } else if (joypos > deadzoneYUp) {
+    return 1;
+  }
+  return 0;
+}
+
+int joystickCalculateOneXDelta(int joypos)
+{
+  return C_ONE_X_DELTA * joystickGetXModifier(joypos);
+}
+
+int joystickCalculateOneYDelta(int joypos)
+{
+  return C_ONE_Y_DELTA * joystickGetYModifier(joypos);
+}
+
+int joystickCalculateTwoXDelta(int joypos)
+{
+  return C_TWO_X_DELTA * joystickGetXModifier(joypos);
+}
+
+int joystickCalculateTwoYDelta(int joypos)
+{
+  return C_TWO_Y_DELTA * joystickGetYModifier(joypos);
+}
+
+void updatePositionsFromJoysticks()
+{
+  int curJoyOneX = analogRead(joystickOneXPin);
+  int curJoyOneY = analogRead(joystickOneYPin);
+  int curJoyTwoX = analogRead(joystickTwoXPin);
+  int curJoyTwoY = analogRead(joystickTwoYPin);
+
+  int deltaOneX = joystickCalculateOneXDelta(curJoyOneX);
+  int deltaOneY = joystickCalculateOneYDelta(curJoyOneY);
+  int deltaTwoX = joystickCalculateTwoXDelta(curJoyTwoX);
+  int deltaTwoY = joystickCalculateTwoYDelta(curJoyTwoY);
+
+  updatePosOneX(deltaOneX);
+  updatePosOneY(deltaOneY);
+  updatePosTwoX(deltaTwoX);
+  updatePosTwoY(deltaTwoY);
+}
+
+
+// LCD FUNCTIONS
+void lcdSetHeaders(String headerOne, String headerTwo, String headerThree, String headerFour)
 {
   lcd.setCursor(lcdLeftRightPos, 0);
-  lcd.print("LR");
+  lcd.print(headerOne);
 
   lcd.setCursor(lcdFrontBackPos,0);
-  lcd.print("FB");
+  lcd.print(headerTwo);
 
   lcd.setCursor(lcdPanPos, 0);
-  lcd.print("Pan");
+  lcd.print(headerThree);
 
   lcd.setCursor(lcdTiltPos, 0);
-  lcd.print("Tilt");
+  lcd.print(headerFour);
 }
 
 void lcdInit() {
   static bool init = false;
   if (!init) {
-    lcdSetHeaders();
+    lcdSetHeaders("LR", "FB", "Pan", "Tilt");
     init = true;
   }
 }
 
-String formatPercentageString(int inputValue)
+String lcdPercentString(int inputValue)
 {
   String value = String (inputValue);
   value += "%";
@@ -336,32 +169,20 @@ String formatPercentageString(int inputValue)
 void lcdUpdate()
 {
   lcd.setCursor(lcdLeftRightPos, 1);
-  lcd.print(formatPercentageString(map(posOneX, C_ONE_MIN_X_POS, C_ONE_MAX_X_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(posOneX, C_ONE_MIN_X_POS, C_ONE_MAX_X_POS, 0, 100)));
 
   lcd.setCursor(lcdFrontBackPos, 1);
-  lcd.print(formatPercentageString(map(posOneY, C_ONE_MIN_Y_POS, C_ONE_MAX_Y_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(posOneY, C_ONE_MIN_Y_POS, C_ONE_MAX_Y_POS, 0, 100)));
 
   lcd.setCursor(lcdPanPos, 1);
-  lcd.print(formatPercentageString(map(posTwoX, C_TWO_MIN_X_POS, C_TWO_MAX_X_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(posTwoX, C_TWO_MIN_X_POS, C_TWO_MAX_X_POS, 0, 100)));
 
   lcd.setCursor(lcdTiltPos, 1);
-  lcd.print(formatPercentageString(map(posTwoY, C_TWO_MIN_Y_POS, C_TWO_MAX_Y_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(posTwoY, C_TWO_MIN_Y_POS, C_TWO_MAX_Y_POS, 0, 100)));
 }
 
-void setup() {
-  Serial.begin(9600);
 
-  // LCD Setup
-  lcd.begin(16, 2); // Initialize LCD-object with 16 columns and 2 lines
-  pinMode(BackLight, OUTPUT); //
-  digitalWrite(BackLight, HIGH); // Powers the display with light
-  lcdInit();
-
-  // Button/Led Setup
-  pinMode(ledPin, OUTPUT);
-  pinMode(buttonPin, INPUT);
-}
-
+// PRESET FUNCTIONS
 const int buttonStatePressed = 0;
 const int buttonStateNotPressed = 1;
 const int buttonStateHoldRelease = 2;
@@ -374,7 +195,7 @@ unsigned long buttonPushStart = 0;
 int buttonState = buttonStateNotPressed;
 void updateButtonState()
 {
-  int currentButtonState = digitalRead(buttonPin);
+  int currentButtonState = digitalRead(presetOneButtonPin);
   int compareButtonState = previousButtonState;
   previousButtonState = currentButtonState;
 
@@ -434,7 +255,7 @@ void performLedActionBlink(unsigned long actionTime)
   }
   if (currentLedState != ledState) {
     ledState = currentLedState;
-    digitalWrite(ledPin, ledState);
+    digitalWrite(presetOneLedPin, ledState);
   }
 }
 
@@ -466,9 +287,9 @@ void updateLedState()
       ledActionStartTime = millis();
       currentAction = ledActionBlink;
     } else if (currentPreset > 0) {
-      digitalWrite(ledPin, HIGH);
+      digitalWrite(presetOneLedPin, HIGH);
     } else {
-      digitalWrite(ledPin, LOW);
+      digitalWrite(presetOneLedPin, LOW);
     }
   } else if (currentAction == ledActionBlink) {
     unsigned long actionTime = millis() - ledActionStartTime;
@@ -481,6 +302,19 @@ void updateLedState()
   }
 }
 
+void setup() {
+  Serial.begin(9600);
+
+  // LCD Setup
+  lcd.begin(16, 2); // Initialize LCD-object with 16 columns and 2 lines
+  pinMode(lcdBacklightPin, OUTPUT); //
+  digitalWrite(lcdBacklightPin, HIGH); // Powers the display with light
+  lcdInit();
+
+  // Button/Led Setup
+  pinMode(presetOneLedPin, OUTPUT);
+  pinMode(presetOneButtonPin, INPUT);
+}
 
 void loop() {
   updateButtonState();
@@ -488,8 +322,7 @@ void loop() {
   if (buttonState == buttonStateTapRelease) {
     choosePreset();
   } else {
-    updateJoypads();
-    calculatePositions();
+    updatePositionsFromJoysticks();
     
     if (buttonState == buttonStateHoldRelease) {
       updatePresetValues();
@@ -504,8 +337,4 @@ void loop() {
   sender.sendControlData();
   delay(50);        // delay in between sends for stability
 }
-
-
-
-
 
