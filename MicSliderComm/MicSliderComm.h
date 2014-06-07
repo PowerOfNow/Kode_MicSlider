@@ -6,6 +6,18 @@
 #define UNIQUE_SIGNATURE_BYTE_ONE 0xFF
 #define UNIQUE_SIGNATURE_BYTE_TWO 0xFE
 
+// Max/min limits for controller one position
+#define C_ONE_MIN_X_POS 1000
+#define C_ONE_MAX_X_POS 2000
+#define C_ONE_MIN_Y_POS 1000
+#define C_ONE_MAX_Y_POS 2000
+
+// Max/min limits for controller two position
+#define C_TWO_MIN_X_POS 1000
+#define C_TWO_MAX_X_POS 2000
+#define C_TWO_MIN_Y_POS 1000
+#define C_TWO_MAX_Y_POS 2000
+
 typedef struct controlDataStruct
 {
   int x;

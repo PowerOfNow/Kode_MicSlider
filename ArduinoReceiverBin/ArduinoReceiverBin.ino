@@ -1,148 +1,79 @@
 #include <MicSliderComm.h>
 #include <Servo.h> 
  
+// Whether to enable debug output
+boolean debug = false;
+
+//  Objects
 Servo servoOneX;
 Servo servoOneY;
 Servo servoTwoX;
 Servo servoTwoY;
 
-#define MIN_DEGREES_X 1500
-#define MAX_DEGREES_X 2600
-#define MIN_DEGREES_Y 1100
-#define MAX_DEGREES_Y 1900
-#define MIDDLE_POS_X (MAX_DEGREES_X + MIN_DEGREES_X)/2;
-#define MIDDLE_POS_Y (MAX_DEGREES_Y + MIN_DEGREES_Y)/2;
-
-int joystickValueX;
-int joystickValueY;
-int posX;
-int posY;
-
-int ctrlOneX = 1500;
-int ctrlOneY = 1500;
-int ctrlTwoX = 1500;
-int ctrlTwoY = 1500;
-
-boolean debug = false;
-
 MicSliderCommReceiver receiver;
 
-void printBuffer(unsigned char* buffer, int bufSize) // Debug function
+// Pin setup
+const int pinServoOneX = 9;
+const int pinServoOneY = 10;
+const int pinServoTwoX = 5;
+const int pinServoTwoY = 6;
+
+// Calculate const values
+const int middleOneXVal = (C_ONE_MAX_X_POS - C_ONE_MIN_X_POS) / 2;
+const int middleOneYVal = (C_ONE_MAX_Y_POS - C_ONE_MIN_Y_POS) / 2;
+const int middleTwoXVal = (C_TWO_MAX_X_POS - C_TWO_MIN_X_POS) / 2;
+const int middleTwoYVal = (C_TWO_MAX_Y_POS - C_TWO_MIN_Y_POS) / 2;
+
+
+void debugPrint (int oneX, int oneY, int twoX, int twoY)
 {
-  for (int i = 0; i < bufSize; ++i) {
-    Serial.print(buffer[i]);
-    Serial.print("|");
+  if (debug) {
+    Serial.print( "1X:"); Serial.print(oneX); Serial.print(" 1Y:"); Serial.print(oneY);
+    Serial.print(" 2X:"); Serial.print(twoX); Serial.print(" 2Y:"); Serial.print(twoY);
+    Serial.println();
   }
-  Serial.println("");
 }
 
 void setup()
 {
   Serial.begin(9600);
 
-  servoOneX.attach(9);
-  posX = MIDDLE_POS_X;
-  servoOneX.writeMicroseconds(1500);
+  servoOneX.attach(pinServoOneX);
+  servoOneX.writeMicroseconds(middleOneXVal);
 
-  servoOneY.attach(10);
-  posY = MIDDLE_POS_Y;
-  servoOneY.writeMicroseconds(1500);
+  servoOneY.attach(pinServoOneY);
+  servoOneY.writeMicroseconds(middleOneYVal);
 
-  servoTwoX.attach(5);
-  posX = MIDDLE_POS_X;
-  servoTwoX.writeMicroseconds(1500);
+  servoTwoX.attach(pinServoTwoX);
+  servoTwoX.writeMicroseconds(middleTwoXVal);
   
-  servoTwoY.attach(6);
-  posY = MIDDLE_POS_Y;
-  servoTwoY.writeMicroseconds(1500);
+  servoTwoY.attach(pinServoTwoY);
+  servoTwoY.writeMicroseconds(middleTwoYVal);
 
   delay(5000);
 }
-int counter = 0;
+
 void loop()
 {
-  //if(debug) {
-  //  Serial.println(posX);
-  //}
-  /*
-  if(!servoOneX.attached()) {
-    servoOneX.attach(9);
-  }
-  if(!servoOneY.attached()) {
-    servoOneY.attach(10);
-  }
-  */
-  receiver.receiveControlData(); // Will lock here until necessary data has been read
-  receiver.getControllerOneData(&ctrlOneX, &ctrlOneY);
-  receiver.getControllerTwoData(&ctrlTwoX, &ctrlTwoY); // TODO: uncomment when implemented
+  static int ctrlOneX = middleOneXVal;
+  static int ctrlOneY = middleOneYVal;
+  static int ctrlTwoX = middleTwoXVal;
+  static int ctrlTwoY = middleTwoYVal;
+
+  receiver.receiveControlData(); // Will lock until necessary data has been read
+
+  // Debug
+  debugPrint(ctrlOneX, ctrlOneY, ctrlTwoX, ctrlTwoY);
   
-  // Controller one
-  //setPosX(ctrlOneX);
+  // Get controller data received by receiveControlData() above
+  receiver.getControllerOneData(&ctrlOneX, &ctrlOneY);
+  receiver.getControllerTwoData(&ctrlTwoX, &ctrlTwoY);
+  
+  // Set position of servos controlled by controller one
   servoOneX.writeMicroseconds(ctrlOneX);
-  //setPosY(ctrlOneY);
   servoOneY.writeMicroseconds(ctrlOneY);
-  // Controller two
+  
+  // Set position of servos controlled by controller two
   servoTwoX.writeMicroseconds(ctrlTwoX);
   servoTwoY.writeMicroseconds(ctrlTwoY);
-  
-  // Debug
-  Serial.print("1X:"); Serial.print(ctrlOneX);  Serial.print(" 1Y:"); Serial.print(ctrlOneY);
-  Serial.print(" 2X:"); Serial.print(ctrlTwoX);  Serial.print(" 2Y:"); Serial.print(ctrlTwoY);
-  Serial.println();
-        
-  //delay(20); // Is delay necessary here?
 }
-
-
-void setPosX(int joystickValueX) {
-  int deltaX = getDelta(joystickValueX);       
-
-  if ((posX + deltaX) < MIN_DEGREES_X) {
-     if(debug) {
-       Serial.println("Boundary +");
-     }
-     posX = MIN_DEGREES_X;
-  } else if ((posX + deltaX) > MAX_DEGREES_X) {
-    if(debug) {
-      Serial.println("Boundary -");
-    }
-    posX = MAX_DEGREES_X;
-  } else {
-    if(debug) {
-      Serial.println("Inside bounds");
-    }
-    posX = posX + deltaX;
-  }
-}
-
-void setPosY(int joystickValueY) {
-  int deltaY = getDelta(joystickValueY);
-  if ((posY + deltaY) < MIN_DEGREES_Y) {
-     posY = MIN_DEGREES_Y;
-  } else if ((posY + deltaY) > MAX_DEGREES_Y) {
-    posY = MAX_DEGREES_Y;
-  } else {
-    posY = posY + deltaY;
-  }
-}
-  
-int getDelta(int joystickValue) {
-  int centerAdjust = 20;
-  if (joystickValue < (512 - centerAdjust)) {
-    if(debug) {
-      Serial.println("Going down");
-    }
-    return floor((512 - joystickValue)/20);
-  } else if (joystickValue > (512 + centerAdjust)) {
-    if(debug) {
-      Serial.println("Going up");
-    }
-    return floor((joystickValue - 512)/20)*(-1);
-  } 
-  if(debug) {
-      Serial.println("Stick at rest");
-  }
-  servoOneX.detach();
-  return 0;
-}
-
