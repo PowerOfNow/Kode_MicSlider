@@ -7,13 +7,19 @@ MicSliderCommSender sender;
 LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
 
 // Pin setup
-const int joystickOneXPin     = A0;
-const int joystickOneYPin     = A1;
-const int joystickTwoXPin     = A2;
-const int joystickTwoYPin     = A3;
-const int lcdBacklightPin     = 7;
-const int presetOneButtonPin  = 8;
-const int presetOneLedPin     = 13;
+const int joystickOneXPin       = A0;
+const int joystickOneYPin       = A1;
+const int joystickTwoXPin       = A2;
+const int joystickTwoYPin       = A3;
+const int lcdBacklightPin       = 7;
+const int presetOneButtonPin    = 8;
+const int presetTwoButtonPin    = 9;
+const int presetThreeButtonPin  = 10;
+const int presetFourButtonPin   = 11;
+const int presetOneLedPin       = 13;
+const int presetTwoLedPin       = 14;
+const int presetThreeLedPin     = 15;
+const int presetFourLedPin      = 16;
 
 // LCD column positions
 const int lcdLeftRightPos = 0;
@@ -32,37 +38,54 @@ const int joystickMiddle    = 512;
 const int joystickDeadzoneX = 162;
 const int joystickDeadzoneY = 162;
 
-// PRESET values
-int presetPosOneX = 1500;
-int presetPosOneY = 1500;
-int presetPosTwoX = 1500;
-int presetPosTwoY = 1500;
+// 'Enum' buttonstate
+const int buttonStatePressed      = 0;
+const int buttonStateNotPressed   = 1;
+const int buttonStateHoldRelease  = 2;
+const int buttonStateTapRelease   = 3;
 
+// Button constants
+const unsigned long buttonHoldLimit = 2000;
 
-// These four variables contain the current position of all for servos.
+// LED constants
+const unsigned long ledBlinkTime = 600;
+const unsigned long ledTotalBlinkTime = 2000;
+
+////
+// Position related
+const int posOneXIndex = 0;
+const int posOneYIndex = 1;
+const int posTwoXIndex = 2;
+const int posTwoYIndex = 3;
+
+// Position presets
+int presetOne[4]    = {1500, 1500, 1500, 1500};
+int presetTwo[4]    = {   0,    0,    0,    0};
+int presetThree[4]  = {   0,    0,    0,    0};
+int presetFour[4]   = {   0,    0,    0,    0};
+
+// Current position
 // Only modify these through updatePos*()
-int posOneX = 1500;
-int posOneY = 1500;
-int posTwoX = 1500;
-int posTwoY = 1500;
+int currentPosition[4] = {1500, 1500, 1500, 1500};
+
 void updatePosOneX(int delta)
 {
-  posOneX = constrain(posOneX + delta, C_ONE_MIN_X_POS, C_ONE_MAX_X_POS);
+  currentPosition[posOneXIndex] = constrain(currentPosition[posOneXIndex] + delta, C_ONE_MIN_X_POS, C_ONE_MAX_X_POS);
 }
 
 void updatePosOneY(int delta)
 {
-  posOneY = constrain(posOneY + delta, C_ONE_MIN_Y_POS, C_ONE_MAX_Y_POS);
+  currentPosition[posOneYIndex] = constrain(currentPosition[posOneYIndex] + delta, C_ONE_MIN_Y_POS, C_ONE_MAX_Y_POS);
 }
 
 void updatePosTwoX(int delta)
 {
-  posTwoX = constrain(posTwoX + delta, C_TWO_MIN_X_POS, C_TWO_MAX_X_POS);
+  currentPosition[posTwoXIndex] = constrain(currentPosition[posTwoXIndex] + delta, C_TWO_MIN_X_POS, C_TWO_MAX_X_POS);
 }
 
 void updatePosTwoY(int delta)
 {
-  posTwoY = constrain(posTwoY + delta, C_TWO_MIN_Y_POS, C_TWO_MAX_Y_POS);
+  currentPosition[posTwoYIndex] = constrain(currentPosition[posTwoYIndex] + delta, C_TWO_MIN_Y_POS, C_TWO_MAX_Y_POS);
 }
 
 
@@ -169,135 +192,253 @@ String lcdPercentString(int inputValue)
 void lcdUpdate()
 {
   lcd.setCursor(lcdLeftRightPos, 1);
-  lcd.print(lcdPercentString(map(posOneX, C_ONE_MIN_X_POS, C_ONE_MAX_X_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(currentPosition[posOneXIndex], C_ONE_MIN_X_POS, C_ONE_MAX_X_POS, 0, 100)));
 
   lcd.setCursor(lcdFrontBackPos, 1);
-  lcd.print(lcdPercentString(map(posOneY, C_ONE_MIN_Y_POS, C_ONE_MAX_Y_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(currentPosition[posOneYIndex], C_ONE_MIN_Y_POS, C_ONE_MAX_Y_POS, 0, 100)));
 
   lcd.setCursor(lcdPanPos, 1);
-  lcd.print(lcdPercentString(map(posTwoX, C_TWO_MIN_X_POS, C_TWO_MAX_X_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(currentPosition[posTwoXIndex], C_TWO_MIN_X_POS, C_TWO_MAX_X_POS, 0, 100)));
 
   lcd.setCursor(lcdTiltPos, 1);
-  lcd.print(lcdPercentString(map(posTwoY, C_TWO_MIN_Y_POS, C_TWO_MAX_Y_POS, 0, 100)));
+  lcd.print(lcdPercentString(map(currentPosition[posTwoYIndex], C_TWO_MIN_Y_POS, C_TWO_MAX_Y_POS, 0, 100)));
 }
 
 
 // PRESET FUNCTIONS
-const int buttonStatePressed = 0;
-const int buttonStateNotPressed = 1;
-const int buttonStateHoldRelease = 2;
-const int buttonStateTapRelease = 3;
-
-const unsigned long buttonHoldLimit = 2000;
-
-int previousButtonState = LOW;
-unsigned long buttonPushStart = 0;
-int buttonState = buttonStateNotPressed;
-void updateButtonState()
+int updateButtonState(int chosenPreset, int buttonPin)
 {
-  int currentButtonState = digitalRead(presetOneButtonPin);
-  int compareButtonState = previousButtonState;
-  previousButtonState = currentButtonState;
+  static int previousButtonStateOne   = LOW;
+  static int previousButtonStateTwo   = LOW;
+  static int previousButtonStateThree = LOW;
+  static int previousButtonStateFour  = LOW;
+
+  static unsigned long buttonPushStartOne = 0;
+  static unsigned long buttonPushStartTwo = 0;
+  static unsigned long buttonPushStartThree = 0;
+  static unsigned long buttonPushStartFour = 0;
+
+  int currentButtonState = digitalRead(buttonPin);
+  int compareButtonState = 0;
+  if (chosenPreset == 1) {
+    compareButtonState = previousButtonStateOne;
+    previousButtonStateOne = currentButtonState;
+  } else if (chosenPreset == 2) {
+    compareButtonState = previousButtonStateTwo;
+    previousButtonStateTwo = currentButtonState;
+  } else if (chosenPreset == 3) {
+    compareButtonState = previousButtonStateThree;
+    previousButtonStateThree = currentButtonState;
+  } else if (chosenPreset == 4) {
+    compareButtonState = previousButtonStateFour;
+    previousButtonStateFour = currentButtonState;
+  }
+  
 
   if (compareButtonState == LOW && currentButtonState == HIGH) {
-    buttonPushStart = millis();
-    buttonState =  buttonStatePressed;
-    return;
+    if (chosenPreset == 1) {
+      buttonPushStartOne = millis();
+    } else if (chosenPreset == 2) {
+      buttonPushStartTwo = millis();
+    } else if (chosenPreset == 3) {
+      buttonPushStartThree = millis();
+    } else if (chosenPreset == 4) {
+      buttonPushStartFour = millis();
+    }
+    return buttonStatePressed;
   }
 
   if (compareButtonState == HIGH && currentButtonState == LOW) {
-    unsigned long holdTime = millis() - buttonPushStart;
+    unsigned long holdTime = 0;
+    if (chosenPreset == 1) {
+      holdTime = millis() - buttonPushStartOne;
+    } else if (chosenPreset == 2) {
+      holdTime = millis() - buttonPushStartTwo;
+    } else if (chosenPreset == 3) {
+      holdTime = millis() - buttonPushStartThree;
+    } else if (chosenPreset == 4) {
+      holdTime = millis() - buttonPushStartFour;
+    }
+
     if (holdTime >= buttonHoldLimit) {
-      buttonState = buttonStateHoldRelease;
-      return;
+      return buttonStateHoldRelease;
     } else {
-      buttonState = buttonStateTapRelease;
-      return;
+      return buttonStateTapRelease;
     }
   }
 
   if (compareButtonState == HIGH) {
-    buttonState = buttonStatePressed;
-    return;
+    return buttonStatePressed;
   }
 
-  buttonState = buttonStateNotPressed;
+  return buttonStateNotPressed;
 }
 
-void updatePresetValues()
+int buttonStateOne   = buttonStateNotPressed;
+int buttonStateTwo   = buttonStateNotPressed;
+int buttonStateThree = buttonStateNotPressed;
+int buttonStateFour  = buttonStateNotPressed;
+void updateButtonStates()
 {
-  presetPosOneX = posOneX;
-  presetPosOneY = posOneY;
-  presetPosTwoX = posTwoX;
-  presetPosTwoY = posTwoY;
-}
-
-void choosePreset()
-{
-  posOneX = presetPosOneX;
-  posOneY = presetPosOneY;
-  posTwoX = presetPosTwoX;
-  posTwoY = presetPosTwoY;
+  buttonStateOne    = updateButtonState(1, presetOneButtonPin);
+  buttonStateTwo    = updateButtonState(2, presetTwoButtonPin);
+  buttonStateThree  = updateButtonState(3, presetThreeButtonPin);
+  buttonStateFour   = updateButtonState(4, presetFourButtonPin);
 }
 
 
-const unsigned long ledBlinkTime = 600;
-int ledState = LOW;
-void performLedActionBlink(unsigned long actionTime)
+void presetTurnLedsOff()
 {
-  int currentLedState = LOW;
-  if (actionTime < ledBlinkTime) {
-    currentLedState = HIGH;
-  } else if (actionTime < (ledBlinkTime * 2)) {
-    currentLedState = LOW;
-  } else if (actionTime < (ledBlinkTime * 3)) {
-    currentLedState = HIGH;
-  }
-  if (currentLedState != ledState) {
-    ledState = currentLedState;
+  digitalWrite(presetOneLedPin, LOW);
+  digitalWrite(presetTwoLedPin, LOW);
+  digitalWrite(presetThreeLedPin, LOW);
+  digitalWrite(presetFourLedPin, LOW);
+}
+
+void presetSetLedState(int ledState, int chosenPreset)
+{
+  if (chosenPreset == 1) {
     digitalWrite(presetOneLedPin, ledState);
+  } else if (chosenPreset == 2) {
+    digitalWrite(presetTwoLedPin, ledState);
+  } else if (chosenPreset == 3) {
+    digitalWrite(presetThreeLedPin, ledState);
+  } else if (chosenPreset == 4) {
+    digitalWrite(presetFourLedPin, ledState);
   }
 }
 
+void updatePresetValues(int chosenPreset)
+{
+  if (chosenPreset == 1) {
+    presetOne[posOneXIndex] = currentPosition[posOneXIndex];
+    presetOne[posOneYIndex] = currentPosition[posOneYIndex];
+    presetOne[posTwoXIndex] = currentPosition[posTwoXIndex];
+    presetOne[posTwoYIndex] = currentPosition[posTwoYIndex];
+  } else if (chosenPreset == 2) {
+    presetTwo[posOneXIndex] = currentPosition[posOneXIndex];
+    presetTwo[posOneYIndex] = currentPosition[posOneYIndex];
+    presetTwo[posTwoXIndex] = currentPosition[posTwoXIndex];
+    presetTwo[posTwoYIndex] = currentPosition[posTwoYIndex];
+  } else if (chosenPreset == 3) {
+    presetThree[posOneXIndex] = currentPosition[posOneXIndex];
+    presetThree[posOneYIndex] = currentPosition[posOneYIndex];
+    presetThree[posTwoXIndex] = currentPosition[posTwoXIndex];
+    presetThree[posTwoYIndex] = currentPosition[posTwoYIndex];
+  } else if (chosenPreset == 4) {
+    presetFour[posOneXIndex] = currentPosition[posOneXIndex];
+    presetFour[posOneYIndex] = currentPosition[posOneYIndex];
+    presetFour[posTwoXIndex] = currentPosition[posTwoXIndex];
+    presetFour[posTwoYIndex] = currentPosition[posTwoYIndex];
+  }
+  
+}
 
+void choosePreset(int chosenPreset)
+{
+  if (chosenPreset == 1) {
+    currentPosition[posOneXIndex] = presetOne[posOneXIndex];
+    currentPosition[posOneYIndex] = presetOne[posOneYIndex];
+    currentPosition[posTwoXIndex] = presetOne[posTwoXIndex];
+    currentPosition[posTwoYIndex] = presetOne[posTwoYIndex];
+  } else if (chosenPreset == 2) {
+    currentPosition[posOneXIndex] = presetTwo[posOneXIndex];
+    currentPosition[posOneYIndex] = presetTwo[posOneYIndex];
+    currentPosition[posTwoXIndex] = presetTwo[posTwoXIndex];
+    currentPosition[posTwoYIndex] = presetTwo[posTwoYIndex];
+  } else if (chosenPreset == 3) {
+    currentPosition[posOneXIndex] = presetThree[posOneXIndex];
+    currentPosition[posOneYIndex] = presetThree[posOneYIndex];
+    currentPosition[posTwoXIndex] = presetThree[posTwoXIndex];
+    currentPosition[posTwoYIndex] = presetThree[posTwoYIndex];
+  } else if (chosenPreset == 4) {
+    currentPosition[posOneXIndex] = presetFour[posOneXIndex];
+    currentPosition[posOneYIndex] = presetFour[posOneYIndex];
+    currentPosition[posTwoXIndex] = presetFour[posTwoXIndex];
+    currentPosition[posTwoYIndex] = presetFour[posTwoYIndex];
+  }
+}
 
-const int ledActionIdle = 0;
-const int ledActionBlink = 1;
-const int ledActionLight = 2;
+void performLedActionBlink(unsigned long actionTime, int activePreset)
+{
+  static int lastChange = -1;
+  int numberOfBlinkChanges = actionTime / ledBlinkTime;
 
-int currentAction = ledActionIdle;
-
-unsigned long ledActionStartTime = 0;
-const unsigned long totalLedBlinkTime = 2000;
-
+  if (lastChange != numberOfBlinkChanges) { // Only set led state when it has changed
+    int ledState = ((numberOfBlinkChanges % 2) == 1) ? LOW : HIGH;
+    
+    presetSetLedState(ledState, activePreset);
+    lastChange = numberOfBlinkChanges;
+  }
+}
 
 int currentlyOnPreset()
 {
-  if (posOneX == presetPosOneX && posOneY == presetPosOneY && posTwoX == presetPosTwoX && posTwoY == presetPosTwoY) {
+  if (currentPosition[posOneXIndex] == presetOne[posOneXIndex] &&
+      currentPosition[posOneYIndex] == presetOne[posOneYIndex] &&
+      currentPosition[posTwoXIndex] == presetOne[posTwoXIndex] &&
+      currentPosition[posTwoYIndex] == presetOne[posTwoYIndex])
+  {
     return 1;
+  } else if (currentPosition[posOneXIndex] == presetTwo[posOneXIndex] &&
+             currentPosition[posOneYIndex] == presetTwo[posOneYIndex] &&
+             currentPosition[posTwoXIndex] == presetTwo[posTwoXIndex] &&
+             currentPosition[posTwoYIndex] == presetTwo[posTwoYIndex])
+  {
+    return 2;
+  } else if (currentPosition[posOneXIndex] == presetThree[posOneXIndex] &&
+             currentPosition[posOneYIndex] == presetThree[posOneYIndex] &&
+             currentPosition[posTwoXIndex] == presetThree[posTwoXIndex] &&
+             currentPosition[posTwoYIndex] == presetThree[posTwoYIndex])
+  {
+    return 3;
+  } else if (currentPosition[posOneXIndex] == presetFour[posOneXIndex] &&
+             currentPosition[posOneYIndex] == presetFour[posOneYIndex] &&
+             currentPosition[posTwoXIndex] == presetFour[posTwoXIndex] &&
+             currentPosition[posTwoYIndex] == presetFour[posTwoYIndex])
+  {
+    return 4;
   }
   return 0;
 }
 
 void updateLedState()
 {
-  if (currentAction == ledActionIdle) {
-    int currentPreset = currentlyOnPreset();
-    if (buttonState == buttonStateHoldRelease) {
+  static unsigned long ledActionStartTime = 0;
+  static boolean ledIdle = true;
+  static int currentPreset = 0;
+  static int currentBlinkingPreset = 0;
+
+  if (ledIdle) {
+    currentPreset = currentlyOnPreset();
+    if (buttonStateOne == buttonStateHoldRelease) {
+      currentBlinkingPreset = 1;
       ledActionStartTime = millis();
-      currentAction = ledActionBlink;
+      ledIdle = false;
+    } else if (buttonStateTwo == buttonStateHoldRelease) {
+      currentBlinkingPreset = 2;
+      ledActionStartTime = millis();
+      ledIdle = false;
+    } else if (buttonStateThree == buttonStateHoldRelease) {
+      currentBlinkingPreset = 3;
+      ledActionStartTime = millis();
+      ledIdle = false;
+    } else if (buttonStateFour == buttonStateHoldRelease) {
+      currentBlinkingPreset = 4;
+      ledActionStartTime = millis();
+      ledIdle = false;
     } else if (currentPreset > 0) {
-      digitalWrite(presetOneLedPin, HIGH);
+      presetSetLedState(HIGH, currentPreset);
     } else {
-      digitalWrite(presetOneLedPin, LOW);
+      presetTurnLedsOff();
     }
-  } else if (currentAction == ledActionBlink) {
+  } else {
     unsigned long actionTime = millis() - ledActionStartTime;
-    if (actionTime >= totalLedBlinkTime) {
-      currentAction = ledActionIdle;
+    if (actionTime >= ledTotalBlinkTime) {
+      ledIdle = true;
       ledActionStartTime = 0;
     } else {
-      performLedActionBlink(actionTime);
+      performLedActionBlink(actionTime, currentBlinkingPreset);
     }
   }
 }
@@ -306,35 +447,52 @@ void setup() {
   Serial.begin(9600);
 
   // LCD Setup
-  lcd.begin(16, 2); // Initialize LCD-object with 16 columns and 2 lines
-  pinMode(lcdBacklightPin, OUTPUT); //
-  digitalWrite(lcdBacklightPin, HIGH); // Powers the display with light
-  lcdInit();
+  lcd.begin(16, 2);                     // Initialize LCD, 16 columns and 2 lines
+  pinMode(lcdBacklightPin, OUTPUT);
+  digitalWrite(lcdBacklightPin, HIGH);  // Powers the display with light
+  lcdInit();                            // Writes headers
 
   // Button/Led Setup
   pinMode(presetOneLedPin, OUTPUT);
   pinMode(presetOneButtonPin, INPUT);
+  pinMode(presetTwoLedPin, OUTPUT);
+  pinMode(presetTwoButtonPin, INPUT);
+  pinMode(presetThreeLedPin, OUTPUT);
+  pinMode(presetThreeButtonPin, INPUT);
+  pinMode(presetFourLedPin, OUTPUT);
+  pinMode(presetFourButtonPin, INPUT);
 }
 
 void loop() {
-  updateButtonState();
+  updateButtonStates();
   updateLedState();
-  if (buttonState == buttonStateTapRelease) {
-    choosePreset();
+  if (buttonStateOne == buttonStateTapRelease) {
+    choosePreset(1);
+  } else if (buttonStateTwo == buttonStateTapRelease) {
+    choosePreset(2);
+  } else if (buttonStateThree == buttonStateTapRelease) {
+    choosePreset(3);
+  } else if (buttonStateFour == buttonStateTapRelease) {
+    choosePreset(4);
   } else {
     updatePositionsFromJoysticks();
     
-    if (buttonState == buttonStateHoldRelease) {
-      updatePresetValues();
+    if (buttonStateOne == buttonStateHoldRelease) {
+      updatePresetValues(1);
+    } else if (buttonStateTwo == buttonStateHoldRelease) {
+      updatePresetValues(2);
+    } else if (buttonStateThree == buttonStateHoldRelease) {
+      updatePresetValues(3);
+    } else if (buttonStateFour == buttonStateHoldRelease) {
+      updatePresetValues(4);
     }
   }
   
   lcdUpdate();
 
-  sender.setControllerOneData(posOneX, posOneY);
-  sender.setControllerTwoData(posTwoX, posTwoY);
+  sender.setControllerOneData(currentPosition[posOneXIndex], currentPosition[posOneYIndex]);
+  sender.setControllerTwoData(currentPosition[posTwoXIndex], currentPosition[posTwoYIndex]);
 
   sender.sendControlData();
-  delay(50);        // delay in between sends for stability
+  delay(50); // delay in between sends for stability
 }
-
